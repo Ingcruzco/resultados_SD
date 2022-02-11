@@ -41,7 +41,7 @@ int main(int argc, char *argv[]){
     }
 	
     for(int i=iam*partialImageSize;i<partialImageSize*(iam+1);i++){
-      outputImage[counter]= (*(img+i*3)+*(img+i*3+1)+*(img+i*3))/3;
+      outputImage[counter]= (*(img+i*3)+*(img+i*3+1)+*(img+i*3-1))/3;
       counter+=1;
      }      
     

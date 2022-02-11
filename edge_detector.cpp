@@ -136,31 +136,18 @@ void compute_gradient(unsigned char* img,unsigned char* img_original, int width,
     
     int channel=3, magx,magy,h,w,size,iam;
     int mag;
-    int acc=0,root=0,counter;
-    unsigned char* output_image,* rbuf,* partialBuffer;
+    int acc=0,root=0,counter=0;
+    unsigned char*rbuf,* partialBuffer;
     MPI_Init(&argc,&argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &iam);
+    int partialImageSize=height*width*3/size;
+    unsigned char output_image[partialImageSize];
     if(iam==root){
-      rbuf=(unsigned char *)malloc(width*height*channel);
-      imagePartialSize=width*height*3/size;
-      magx=0;
-      magy=0;   
+      size_t  outputSizeImage=width*height*3;
+      rbuf=(unsigned char *)malloc(outputSizeImage);
     }
-    MPI_Bcast(&imagePartialSize, 1,MPI_UNSIGNED_LONG_LONG,0,MPI_COMM_WORLD);
-    MPI_Bcast(&channel,1,MPI_INT,0,MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
-    partialBuffer=( unsigned char*)malloc(imagePartialSize);
-    output_image=(unsigned char*)malloc(imagePartialSize);
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Scatter(&img_original, imagePartialSize, MPI_UNSIGNED_CHAR,output_image, imagePartialSize, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD );
-    MPI_Barrier(MPI_COMM_WORLD);
-    /*for(int i=0;i<imagePartialSize;i++){
-        *(partialBuffer+i)=(uint8_t)(*(output_image + i*3)+*(output_image+i*3+1)+*(output_image+i*3+2))/3;
-    }*/
-    MPI_Barrier( MPI_COMM_WORLD );
-    MPI_Gather( &output_image, imagePartialSize, MPI_UNSIGNED_CHAR, rbuf, imagePartialSize, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD );
-    /*for(int i=iam*imagePartialSize;i<imagePartialSize*(iam+1);i++){
+ /*  for(int i=iam*partialImageSize;i<partialImageSize*(iam+1);i++){
         // for(int w=0;w<width;w++){
             h=(int)floor(i/width);
             w=(int)(i-h*width);
@@ -171,27 +158,26 @@ void compute_gradient(unsigned char* img,unsigned char* img_original, int width,
                 mag=sqrt(pow(magx,2)+pow(magy,2));
                 
                 if(mag>HIGH){
-                    *(output_image+acc*3)=(uint8_t)255;
-                    *(output_image+acc*3+1)=(uint8_t)0;
-                    *(output_image+acc*3+2)=(uint8_t)0;
+                    output_image[counter]=255;
+                    output_image[counter+1]=0;
+                    output_image[counter+2]=0;
                 }
                 else{
-                    *(output_image+acc*3)=*(img_original+acc*3);
-                    *(output_image+acc*3+1)=*(img_original+acc*3+1);
-                    *(output_image+acc*3+2)=*(img_original+acc*3+2);    
+                    output_image[counter]=*(img_original+acc*3);
+                    output_image[counter+1]=*(img_original+acc*3+1);
+                    output_image[counter+2]=*(img_original+acc*3+2);    
                 }
             }else{
-                *(output_image+acc*3)=(uint8_t)*(img_original+acc*3);
-                *(output_image+acc*3+1)=(uint8_t)*(img_original+acc*3+1);
-                *(output_image+acc*3+2)=(uint8_t)*(img_original+acc*3+2); 
+                output_image[counter]=*(img_original+acc*3);
+                output_image[counter+1]=*(img_original+acc*3+1);
+                output_image[counter+2]=*(img_original+acc*3+2); 
             }
+	   counter+=3;
         }*/
-    //MPI_Gather(output_image,total_size*3, MPI_UINT8_T,rbuf, total_size*3, MPI_UINT8_T, root, MPI_COMM_WORLD);     
+    MPI_Gather(output_image,partialImageSize, MPI_UNSIGNED_CHAR,rbuf,partialImageSize, MPI_UNSIGNED_CHAR, root, MPI_COMM_WORLD);     
     if(iam==root){
         std::cout<<"Creando Imagen ....."<<endl;
-        stbi_write_jpg("EDGE_IMAGE.jpg",width,height,3,rbuf,100);
-        stbi_image_free(rbuf);
-        stbi_image_free(output_image);   
+        stbi_write_jpg("EDGE_IMAGE.jpg",width,height,3,rbuf,100); 
     }  
     MPI_Finalize();
    
