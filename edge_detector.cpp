@@ -130,25 +130,37 @@ void compute_gradient(unsigned char* img,unsigned char* img_original, int width,
 
     size_t img_size =width*height;
     size_t gray_img_size=width*height*CHANNEL;
-
+    size_t imagePartialSize;
     unsigned char* gray_img;
     gray_img=compute_grayscale(img,width,height,CHANNEL);
     
-    int magx,magy,h,w,size,iam;
+    int channel=3, magx,magy,h,w,size,iam;
     int mag;
     int acc=0,root=0,counter;
-    unsigned char* output_image;
+    unsigned char* output_image,* rbuf,* partialBuffer;
     MPI_Init(&argc,&argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &iam);
-    counter=0;
     if(iam==root){
-      output_image=(unsigned char *)malloc(width*height*CHANNEL*sizeof(uint8_t));
+      rbuf=(unsigned char *)malloc(width*height*channel);
+      imagePartialSize=width*height*3/size;
+      magx=0;
+      magy=0;   
     }
-
-    int total_size=height*width/size;
-    unsigned char send_array[total_size*3];
-    for(int i=iam*total_size;i<total_size*(iam+1);i++){
+    MPI_Bcast(&imagePartialSize, 1,MPI_UNSIGNED_LONG_LONG,0,MPI_COMM_WORLD);
+    MPI_Bcast(&channel,1,MPI_INT,0,MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+    partialBuffer=( unsigned char*)malloc(imagePartialSize);
+    output_image=(unsigned char*)malloc(imagePartialSize);
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Scatter(&img_original, imagePartialSize, MPI_UNSIGNED_CHAR,output_image, imagePartialSize, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD );
+    MPI_Barrier(MPI_COMM_WORLD);
+    /*for(int i=0;i<imagePartialSize;i++){
+        *(partialBuffer+i)=(uint8_t)(*(output_image + i*3)+*(output_image+i*3+1)+*(output_image+i*3+2))/3;
+    }*/
+    MPI_Barrier( MPI_COMM_WORLD );
+    MPI_Gather( &output_image, imagePartialSize, MPI_UNSIGNED_CHAR, rbuf, imagePartialSize, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD );
+    /*for(int i=iam*imagePartialSize;i<imagePartialSize*(iam+1);i++){
         // for(int w=0;w<width;w++){
             h=(int)floor(i/width);
             w=(int)(i-h*width);
@@ -159,31 +171,30 @@ void compute_gradient(unsigned char* img,unsigned char* img_original, int width,
                 mag=sqrt(pow(magx,2)+pow(magy,2));
                 
                 if(mag>HIGH){
-                    send_array[counter]=(uint8_t)255;
-                    send_array[counter+1]=(uint8_t)0;
-                    send_array[counter+2]=(uint8_t)0;
+                    *(output_image+acc*3)=(uint8_t)255;
+                    *(output_image+acc*3+1)=(uint8_t)0;
+                    *(output_image+acc*3+2)=(uint8_t)0;
                 }
                 else{
-                    send_array[counter]=*(img_original+acc*3);
-                    send_array[counter+1]=*(img_original+acc*3+1);
-                    send_array[counter+2]=*(img_original+acc*3+2);    
+                    *(output_image+acc*3)=*(img_original+acc*3);
+                    *(output_image+acc*3+1)=*(img_original+acc*3+1);
+                    *(output_image+acc*3+2)=*(img_original+acc*3+2);    
                 }
             }else{
-                send_array[counter]=(uint8_t)*(img_original+acc*3);
-                send_array[counter+1]=(uint8_t)*(img_original+acc*3+1);
-                send_array[counter+2]=(uint8_t)*(img_original+acc*3+2); 
+                *(output_image+acc*3)=(uint8_t)*(img_original+acc*3);
+                *(output_image+acc*3+1)=(uint8_t)*(img_original+acc*3+1);
+                *(output_image+acc*3+2)=(uint8_t)*(img_original+acc*3+2); 
             }
-          counter+=3;
-
-        }
-    std::cout<<"Proceso %i: "<<iam<<endl;
-    MPI_Gather( send_array,total_size*3, MPI_UINT8_T, output_image, total_size*3, MPI_UINT8_T, root, MPI_COMM_WORLD);     
-      
+        }*/
+    //MPI_Gather(output_image,total_size*3, MPI_UINT8_T,rbuf, total_size*3, MPI_UINT8_T, root, MPI_COMM_WORLD);     
+    if(iam==root){
+        std::cout<<"Creando Imagen ....."<<endl;
+        stbi_write_jpg("EDGE_IMAGE.jpg",width,height,3,rbuf,100);
+        stbi_image_free(rbuf);
+        stbi_image_free(output_image);   
+    }  
     MPI_Finalize();
-      	
- 	   
-    stbi_write_jpg("EDGE_IMAGE.jpg",width,height,3,output_image,100);
-    stbi_image_free(output_image);  
+   
 }
 
 // unsigned char* convert_to_gray(unsigned char* img,int width,int height){

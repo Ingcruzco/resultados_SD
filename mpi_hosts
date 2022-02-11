@@ -5,7 +5,7 @@ localhost slots=2
 
 # The following slave nodes are single processor machines:
 10.128.0.10 slots=2
-#nodo2 slots=2
+#10.128.0.4 slots=2
 #nodo3 slots=2
 #nodo4 slots=2
 #10.128.0.7 slots=2
